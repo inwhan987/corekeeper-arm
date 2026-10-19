@@ -108,9 +108,16 @@ echo
 echo "===== [1/7] 패키지 설치 ====="
 sudo apt-get update -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-     docker.io curl python3 tar ca-certificates procps
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 2>/dev/null \
-  || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin
+     curl python3 tar ca-certificates procps
+# 도커가 이미 있으면 건드리지 않는다
+# (도커 공식 docker-ce 와 우분투 docker.io 는 함께 설치할 수 없음)
+if ! command -v docker >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+fi
+if ! sudo docker compose version >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 2>/dev/null \
+    || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin
+fi
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent || true
 sudo systemctl enable --now docker
 
