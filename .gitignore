@@ -1,0 +1,8 @@
+   core.env
+   .env
+   .state/
+   server-files/
+   server-data/
+   backups/
+   *.tar.gz
+   *.log
