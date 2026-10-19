@@ -1,0 +1,186 @@
+#!/bin/bash
+# =====================================================================
+#  ck — 코어키퍼 서버 관리 명령
+#
+#    ck apply          설정 적용 (바뀐 항목을 디스코드로 알림)
+#    ck start | stop | restart
+#    ck status         상태 · 접속 정보 · 빌드
+#    ck log            로그 보기
+#    ck id             게임 ID 출력
+#    ck backup         월드 백업 (최근 7개 보관)
+#    ck update         도커 이미지 업데이트
+#    ck update-game    게임 본체 재설치 (월드는 그대로)
+# =====================================================================
+
+REAL="$(readlink -f "$0")"
+# shellcheck source=lib.sh
+source "$(dirname "$REAL")/lib.sh"
+cd "$DIR" || exit 1
+
+# compose 는 env_file 이 아니라 .env 에서 포트를 읽으므로 따로 만들어 둔다
+write_dotenv(){ echo "SERVER_PORT=$(getenv SERVER_PORT)" > "$DIR/.env"; }
+
+will_recreate(){
+  running || return 0
+  local new cur
+  new=$($D compose config --hash=core-keeper 2>/dev/null | awk '{print $2}')
+  cur=$($D inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$CON" 2>/dev/null)
+  [ -z "$new" ] && return 0
+  [ "$new" != "$cur" ]
+}
+
+diff_settings(){
+  local old="$STATE/env.applied"
+  [ -f "$old" ] || { cp "$ENVF" "$old"; return 1; }
+  python3 - "$old" "$ENVF" <<'PYEOF'
+import sys
+def load(p):
+    vals, labs, last = {}, {}, None
+    for raw in open(p, encoding="utf-8", errors="replace"):
+        s = raw.strip()
+        if s.startswith("#"):
+            t = s.lstrip("#").strip()
+            last = t if t and not set(t) <= set("=-─ ") else None
+            continue
+        if not s:
+            last = None
+            continue
+        if "=" in s:
+            k, v = s.split("=", 1)
+            k = k.strip(); vals[k] = v.strip()
+            if last:
+                lab = last
+                for sep in (" — ", " ← ", " (", " -- "):
+                    lab = lab.split(sep)[0]
+                labs[k] = lab.strip()
+            last = None
+    return vals, labs
+old, _ = load(sys.argv[1])
+new, labels = load(sys.argv[2])
+SECRET = ("PASSWORD", "WEBHOOK", "TOKEN", "KEY")
+out = []
+for k, v in new.items():
+    if old.get(k) == v:
+        continue
+    name = labels.get(k, k)
+    if any(s in k for s in SECRET):
+        out.append(f"{name} ({k}): 변경됨")
+    elif k in old:
+        out.append(f"{name} ({k}): {old[k] or '(빈칸)'} → {v or '(빈칸)'}")
+    else:
+        out.append(f"{name} ({k}): (새로 추가) → {v}")
+for k in old:
+    if k not in new:
+        out.append(f"{k}: (삭제됨)")
+if not out:
+    sys.exit(1)
+if len(out) > 15:
+    out = out[:15] + [f"… 외 {len(out) - 15}개"]
+print("\n".join(out))
+PYEOF
+}
+
+case "$1" in
+
+apply)
+  write_dotenv
+  CHANGES=$(diff_settings) && HAS=1 || HAS=0
+  if [ "$HAS" = "1" ]; then
+    if will_recreate; then
+      send "🔧 설정 변경 적용" "$CHANGES
+
+서버를 다시 시작합니다." "$C_INFO"
+    else
+      send "🔧 설정 파일 변경" "$CHANGES" "$C_INFO"
+    fi
+  fi
+  $D compose up -d
+  cp "$ENVF" "$STATE/env.applied"
+  ;;
+
+start)
+  write_dotenv
+  $D compose up -d
+  ;;
+
+stop)
+  $D compose stop
+  ;;
+
+restart)
+  $D compose restart
+  ;;
+
+status)
+  $D compose ps
+  echo
+  if server_proc; then echo "게임 서버 : 실행 중"; else echo "게임 서버 : 꺼져 있음 (또는 기동 중)"; fi
+  echo "접속 정보 : $(connect_info)"
+  echo "비밀번호  : $( [ -n "$(getenv PASSWORD)" ] && echo 설정됨 || echo 없음 )"
+  echo "빌드      : 설치 $(installed_build) / 최신 $(latest_build)"
+  echo "백업      : $(ls -1 "$BACKUP_DIR"/world_*.tar.gz 2>/dev/null | wc -l)개 ($BACKUP_DIR)"
+  ;;
+
+log)
+  $D compose logs -f --tail=100 --no-log-prefix
+  ;;
+
+id)
+  game_id
+  ;;
+
+backup)
+  F=$(backup_world) && echo "백업 완료: $F" || echo "!! 백업 실패"
+  ;;
+
+update)
+  send "🔧 이미지 업데이트" "관리 도구를 새 버전으로 교체합니다." "$C_INFO"
+  $D compose pull
+  $D compose up -d
+  ;;
+
+update-game)
+  if [ "$2" != "-y" ]; then
+    echo "게임 본체를 새로 내려받습니다. 월드(server-data)는 건드리지 않습니다."
+    printf "계속할까요? (yes): "
+    read -r ans
+    [ "$ans" = "yes" ] || { echo "취소"; exit 1; }
+  fi
+  touch "$STATE/maintenance"                      # 워치독 침묵
+  trap 'rm -f "$STATE/maintenance"' EXIT
+  OLD=$(installed_build)
+  NEW=$(latest_build)
+  send "🔧 코어키퍼 업데이트" "빌드 \`${OLD:-?}\` → \`${NEW:-?}\`
+게임 본체를 새로 내려받습니다. 몇 분 걸립니다." "$C_INFO"
+
+  echo "[1/4] 월드 백업"
+  F=$(backup_world) || { echo "!! 백업 실패 — 중단"; exit 1; }
+  echo "      $F"
+
+  echo "[2/4] 서버 정지"
+  $D compose stop
+
+  echo "[3/4] 게임 파일 비우기 (월드는 그대로)"
+  sudo find "$DIR/server-files" -mindepth 1 -delete
+
+  echo "[4/4] 기동 + 내려받기"
+  write_dotenv
+  $D compose up -d
+  printf "      대기중"
+  if wait_ready 2400; then
+    echo " 완료"
+    record_build
+    send "✅ 업데이트 완료" "빌드 \`$(installed_build)\`
+$(connect_info)" "$C_OK"
+  else
+    echo " 시간 초과"
+    send "⚠️ 업데이트 확인 필요" "40분이 지나도 서버가 뜨지 않았습니다. \`ck log\` 로 확인하세요." "$C_BAD"
+    exit 1
+  fi
+  ;;
+
+*)
+  echo "사용법: ck {apply|start|stop|restart|status|log|id|backup|update|update-game}"
+  exit 1
+  ;;
+esac
