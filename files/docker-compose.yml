@@ -1,13 +1,30 @@
 services:
   core-keeper:
-    image: escaping/core-keeper-dedicated:latest
+    # FEX 로 x86 서버를 ARM 에서 돌리는 이미지 (오라클 A1 검증)
+    # https://github.com/Lianye-Scythe/core-keeper-dedicated-fex
+    image: ghcr.io/lianye-scythe/core-keeper-dedicated:fex
     container_name: core-keeper-dedicated
     restart: unless-stopped
     stop_grace_period: 2m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${SERVER_PORT:-27015}:${SERVER_PORT:-27015}/udp"
     volumes:
       - ./server-files:/home/steam/core-keeper-dedicated
       - ./server-data:/home/steam/core-keeper-data
+      - ./fex-cache:/home/steam/.cache/fex
+      - ./mesa-cache:/home/steam/.cache/mesa_shader_cache
+      - ./update-control:/run/corekeeper-update
     env_file:
       - core.env
+    environment:
+      COREKEEPER_RUNTIME: fex
+      USE_DEPOT_DOWNLOADER: "true"
+      # 오라클 A1 에서 기동 중 세그폴트를 피하는 FEX 번역 설정
+      FEX_MULTIBLOCK: "1"
+      FEX_MAXINST: "16"
+      FEX_SMCCHECKS: "1"

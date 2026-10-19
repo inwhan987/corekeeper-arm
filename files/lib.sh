@@ -69,21 +69,31 @@ installed_build(){
 record_build(){ local b; b=$(latest_build); [ -n "$b" ] && echo "$b" > "$STATE/installed_build"; return 0; }
 
 # ------------------------------------------------------------ 기동 대기
-wait_ready(){   # wait_ready <최대초>  — 서버 프로세스가 뜨고 GameID.txt 가 갱신될 때까지
-  local max=${1:-1800} t=0 since=""
-  local mark="$STATE/.start_mark"; touch "$mark"
+now_utc(){ date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+wait_ready(){   # wait_ready <최대초> <기준시각>  — 기준시각 이후 로그에 "접속 대기" 가 뜰 때까지
+  # 에뮬레이션 + 모드 컴파일 때문에 10분 넘게 걸릴 수 있다
+  local max=${1:-3600} since=${2:-$(now_utc)} t=0
   while [ $t -lt "$max" ]; do
-    if server_proc; then
-      [ -z "$since" ] && since=$t
-      [ "$DIR/server-files/GameID.txt" -nt "$mark" ] && return 0
-      [ $((t - since)) -ge 120 ] && return 0     # 직접 접속 모드 등 GameID 가 안 바뀌는 경우
-    else
-      since=""
+    if $D logs --since "$since" "$CON" 2>&1 \
+         | grep -qE "Listening on ip|Started session|Game ID"; then
+      return 0
     fi
-    sleep 10; t=$((t + 10))
+    if $D logs --since "$since" "$CON" 2>&1 | grep -qE "Segmentation fault|SIGSEGV"; then
+      return 2     # 기동 중 크래시
+    fi
+    sleep 15; t=$((t + 15))
     [ $((t % 60)) -eq 0 ] && printf "."
   done
   return 1
+}
+
+# ------------------------------------------------------- 업데이트 허가
+# UPDATE_GATE_ENABLED=true 이면 컨테이너는 평소 업데이트 확인(파일 검사)을 건너뛰고,
+# 이 파일에 1시간 이내의 시각이 적혀 있을 때만 업데이트한다. 사용 후 컨테이너가 지운다.
+grant_update(){
+  mkdir -p "$DIR/update-control"
+  date +%s > "$DIR/update-control/apply-update"
 }
 
 # ----------------------------------------------------------------- 백업

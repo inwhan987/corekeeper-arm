@@ -2,8 +2,8 @@
 # =====================================================================
 #  코어키퍼 ARM 서버 설치
 #
-#  대상   : ARM64(aarch64) 우분투 22.04 / 24.04
-#           오라클 Ampere A1 · 라즈베리파이 5
+#  대상   : ARM64(aarch64) 우분투 22.04 / 24.04 — 오라클 Ampere A1 에서 검증
+#  방식   : FEX 에뮬레이션 이미지 (ghcr.io/lianye-scythe/core-keeper-dedicated:fex)
 #  사용법 : bash install.sh [월드백업.tar.gz]
 #           (sudo 로 실행하지 마세요 — 필요한 곳에서만 스크립트가 씁니다)
 #
@@ -23,17 +23,6 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 [ "$(id -u)" = "0" ] && { echo "!! sudo 없이 실행해주세요:  bash install.sh"; exit 1; }
 [ -n "$RESTORE" ] && [ ! -f "$RESTORE" ] && { echo "!! 백업 파일이 없습니다: $RESTORE"; exit 1; }
-
-# ARM CPU 자동 판별 (Box64 빌드 선택용)
-PAGE=$(getconf PAGESIZE 2>/dev/null || echo 4096)
-MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
-if echo "$MODEL" | grep -qi "Raspberry Pi 5"; then
-  [ "$PAGE" = "16384" ] && ARM64_DEVICE=rpi5_16k || ARM64_DEVICE=rpi5
-elif lscpu 2>/dev/null | grep -qiE "Neoverse-N1|Ampere"; then
-  ARM64_DEVICE=adlink
-else
-  ARM64_DEVICE=generic
-fi
 
 # 스크립트 옆에 files/ 가 있으면 그것을, 없으면 저장소를 내려받아 쓴다
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -59,9 +48,6 @@ asksecret(){
 }
 
 # ================================================================ 질문
-echo
-echo "  CPU: $ARM64_DEVICE  (페이지 ${PAGE}B)"
-
 REMOVE_PAL=n
 if sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx palworld-fex \
    || [ -d "$HOME/pal-fex" ]; then
@@ -86,6 +72,19 @@ PASSWORD=$(asksecret "접속 비밀번호 (없으면 엔터)     : ")
 WEBHOOK=$(ask      "디스코드 웹후크 (없으면 엔터)   : " "")
 
 echo
+echo "================ 모드 (mod.io) ================"
+echo "  mod.io 주소 마지막 부분을 쉼표로 — 예: core-lib,coreenhance"
+echo "  의존 모드(core-lib 등)도 꼭 넣으세요. 화면 전용 모드는 빼도 됩니다."
+MODS=$(ask         "모드 목록 (없으면 엔터)         : " "")
+MODIO_API_KEY=""; MODIO_API_URL=""; MODS_ENABLED=false
+if [ -n "$MODS" ]; then
+  MODS=$(echo "$MODS" | tr -d ' ')
+  MODIO_API_KEY=$(asksecret "mod.io API 키                   : ")
+  MODIO_API_URL=$(ask       "mod.io API 주소 (https://u-…)   : " "")
+  MODS_ENABLED=true
+fi
+
+echo
 echo "================ 자동 관리 ================"
 CRON_HOUR=$(ask    "정기 점검 시각 (0~23)       [5] : " "5")
 AUTO_UPDATE=$(ask  "업데이트 자동 적용? (y/n)   [y] : " "y")
@@ -101,7 +100,7 @@ case "$CHECK_MIN"   in ''|*[!0-9]*) CHECK_MIN=30 ;; esac
 PASSWORD=${PASSWORD:0:28}
 
 echo
-echo "입력이 끝났습니다. 여기서부터는 자동으로 진행됩니다 (10~40분)."
+echo "입력이 끝났습니다. 여기서부터는 자동으로 진행됩니다 (20~60분)."
 
 # ============================================================ 1. 패키지
 echo
@@ -143,22 +142,25 @@ fi
 # ============================================================ 3. 파일
 echo
 echo "===== [3/7] 파일 배치 ====="
-mkdir -p "$DIR/server-files" "$DIR/server-data"
+mkdir -p "$DIR/server-files" "$DIR/server-data" "$DIR/fex-cache" "$DIR/mesa-cache" "$DIR/update-control"
 for f in docker-compose.yml lib.sh ck watchdog.sh checkupdate.sh nightly.sh; do
   cp "$SRC/files/$f" "$DIR/"
 done
 chmod +x "$DIR/ck" "$DIR"/*.sh
 
 WORLD_NAME="$WORLD_NAME" WORLD_MODE="$WORLD_MODE" MAX_PLAYERS="$MAX_PLAYERS" \
-SERVER_PORT="$SERVER_PORT" PASSWORD="$PASSWORD" ARM64_DEVICE="$ARM64_DEVICE" \
+SERVER_PORT="$SERVER_PORT" PASSWORD="$PASSWORD" \
 PUID="$(id -u)" PGID="$(id -g)" WEBHOOK="$WEBHOOK" \
+MODS_ENABLED="$MODS_ENABLED" MODIO_API_KEY="$MODIO_API_KEY" MODIO_API_URL="$MODIO_API_URL" MODS="$MODS" \
 python3 - "$SRC/files/env.template" "$DIR/core.env" <<'PYEOF'
 import os, sys
 t = open(sys.argv[1], encoding="utf-8").read()
 for key, env in [("WORLD_NAME","WORLD_NAME"), ("WORLD_MODE","WORLD_MODE"),
                  ("MAX_PLAYERS","MAX_PLAYERS"), ("SERVER_PORT","SERVER_PORT"),
-                 ("PASSWORD","PASSWORD"), ("ARM64_DEVICE","ARM64_DEVICE"),
-                 ("PUID","PUID"), ("PGID","PGID"), ("DISCORD_WEBHOOK","WEBHOOK")]:
+                 ("PASSWORD","PASSWORD"), ("PUID","PUID"), ("PGID","PGID"),
+                 ("DISCORD_WEBHOOK","WEBHOOK"), ("MODS_ENABLED","MODS_ENABLED"),
+                 ("MODIO_API_KEY","MODIO_API_KEY"), ("MODIO_API_URL","MODIO_API_URL"),
+                 ("MODS","MODS")]:
     t = t.replace(f"__{key}__", os.environ.get(env, ""))
 open(sys.argv[2], "w", encoding="utf-8").write(t)
 PYEOF
@@ -174,18 +176,26 @@ sudo chown -R "$(id -u):$(id -g)" "$DIR"
 
 # ============================================================ 4. 기동
 echo
-echo "===== [4/7] 첫 기동 — 게임 내려받기 ====="
+echo "===== [4/7] 첫 기동 — 게임 내려받기 + 모드 컴파일 ====="
 cd "$DIR"
-sudo docker compose pull
-sudo docker compose up -d
 # shellcheck source=files/lib.sh
 source "$DIR/lib.sh"
-printf "서버가 뜰 때까지 대기 (최대 40분)"
-if wait_ready 2400; then
+sudo docker compose pull
+S=$(now_utc)
+sudo docker compose up -d
+printf "서버가 뜰 때까지 대기 (최대 60분)"
+wait_ready 3600 "$S" && rc=0 || rc=$?
+if [ "$rc" = "0" ]; then
   echo " 완료"
+elif [ "$rc" = "2" ]; then
+  echo
+  echo "!! 서버가 켜지다가 죽었습니다 (세그폴트)."
+  echo "   모드를 넣었다면 화면 전용 모드부터 빼고 다시 해보세요:"
+  echo "   nano $DIR/core.env  →  MODS= 수정  →  $DIR/ck apply"
+  exit 1
 else
   echo
-  echo "!! 40분이 지나도 서버가 뜨지 않았습니다."
+  echo "!! 60분이 지나도 서버가 뜨지 않았습니다."
   echo "   cd $DIR && sudo docker compose logs -f   로 확인하세요."
   exit 1
 fi
@@ -198,7 +208,7 @@ echo "===== [5/7] 자동 관리 등록 ====="
 if [ "$AUTO_UPDATE" = "y" ] || [ "$AUTO_UPDATE" = "Y" ]; then
   NIGHT="$DIR/nightly.sh"
 else
-  NIGHT="$DIR/ck restart"
+  NIGHT="$DIR/ck backup"
 fi
 { crontab -l 2>/dev/null | grep -v "$DIR/" | grep -v '^PATH=' || true
   echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -231,11 +241,13 @@ echo "   접속        : 게임 → 참가 → 직접 연결"
 echo "   주소        : $IP"
 echo "   포트        : $SERVER_PORT"
 echo "   비밀번호    : $( [ -n "$PASSWORD" ] && echo '(입력하신 값)' || echo '없음' )"
-echo "   정기 점검   : 매일 ${CRON_HOUR}시"
+echo "   정기 점검   : 매일 ${CRON_HOUR}시 — 월드 백업, 업데이트 있을 때만 재시작"
 echo
 echo "   상태 확인   : ck status"
-echo "   설정 변경   : nano $DIR/core.env  →  ck apply"
+echo "   설정 변경   : nano $DIR/core.env  →  ck apply  →  ck wait"
 echo "   업데이트    : ckup"
+echo
+echo " 재시작은 에뮬레이션 + 모드 컴파일 때문에 10분 넘게 걸릴 수 있습니다."
 echo
 echo " ⚠ 클라우드 콘솔에서 인바운드 규칙을 직접 추가해야 접속됩니다:"
 echo "   프로토콜 UDP / 대상 포트 $SERVER_PORT / 소스 CIDR 0.0.0.0/0"

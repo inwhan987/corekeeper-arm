@@ -6,10 +6,13 @@
 #    ck start | stop | restart
 #    ck status         상태 · 접속 정보 · 빌드
 #    ck log            로그 보기
+#    ck wait           서버가 접속 가능해질 때까지 기다리기
 #    ck id             게임 ID 출력
 #    ck backup         월드 백업 (최근 7개 보관)
 #    ck update         도커 이미지 업데이트
-#    ck update-game    게임 본체 재설치 (월드는 그대로)
+#    ck update-game    게임 업데이트 (백업 → 허가 → 재시작)
+#
+#  재시작은 에뮬레이션 + 모드 컴파일 때문에 10분 이상 걸릴 수 있습니다.
 # =====================================================================
 
 REAL="$(readlink -f "$0")"
@@ -141,7 +144,7 @@ update)
 
 update-game)
   if [ "$2" != "-y" ]; then
-    echo "게임 본체를 새로 내려받습니다. 월드(server-data)는 건드리지 않습니다."
+    echo "게임을 최신 버전으로 업데이트하고 재시작합니다. 월드는 먼저 백업합니다."
     printf "계속할까요? (yes): "
     read -r ans
     [ "$ans" = "yes" ] || { echo "취소"; exit 1; }
@@ -151,36 +154,49 @@ update-game)
   OLD=$(installed_build)
   NEW=$(latest_build)
   send "🔧 코어키퍼 업데이트" "빌드 \`${OLD:-?}\` → \`${NEW:-?}\`
-게임 본체를 새로 내려받습니다. 몇 분 걸립니다." "$C_INFO"
+업데이트 후 다시 켭니다. 10~20분 걸립니다." "$C_INFO"
 
-  echo "[1/4] 월드 백업"
+  echo "[1/3] 월드 백업"
   F=$(backup_world) || { echo "!! 백업 실패 — 중단"; exit 1; }
   echo "      $F"
 
-  echo "[2/4] 서버 정지"
-  $D compose stop
-
-  echo "[3/4] 게임 파일 비우기 (월드는 그대로)"
-  sudo find "$DIR/server-files" -mindepth 1 -delete
-
-  echo "[4/4] 기동 + 내려받기"
+  echo "[2/3] 업데이트 허가 후 재시작"
+  grant_update
   write_dotenv
+  S=$(now_utc)
   $D compose up -d
+  $D compose restart
+
+  echo "[3/3] 기동 대기 (최대 60분)"
   printf "      대기중"
-  if wait_ready 2400; then
+  wait_ready 3600 "$S"; rc=$?
+  if [ "$rc" = "0" ]; then
     echo " 완료"
     record_build
     send "✅ 업데이트 완료" "빌드 \`$(installed_build)\`
 $(connect_info)" "$C_OK"
+  elif [ "$rc" = "2" ]; then
+    echo " 크래시"
+    send "⚠️ 업데이트 후 크래시" "서버가 켜지다가 죽었습니다. \`ck log\` 로 확인하세요.
+백업: \`$F\`" "$C_BAD"
+    exit 1
   else
     echo " 시간 초과"
-    send "⚠️ 업데이트 확인 필요" "40분이 지나도 서버가 뜨지 않았습니다. \`ck log\` 로 확인하세요." "$C_BAD"
+    send "⚠️ 업데이트 확인 필요" "60분이 지나도 서버가 뜨지 않았습니다. \`ck log\` 로 확인하세요." "$C_BAD"
     exit 1
   fi
   ;;
 
+wait)
+  # 컨테이너가 마지막으로 켜진 시각 이후의 로그만 보고, 접속 가능해질 때까지 기다린다
+  printf "기동 대기"
+  STARTED=$($D inspect -f '{{.State.StartedAt}}' "$CON" 2>/dev/null)
+  wait_ready 3600 "${STARTED:-$(now_utc)}"; rc=$?
+  case $rc in 0) echo " 완료 — $(connect_info)";; 2) echo " 크래시 — ck log 확인";; *) echo " 시간 초과";; esac
+  ;;
+
 *)
-  echo "사용법: ck {apply|start|stop|restart|status|log|id|backup|update|update-game}"
+  echo "사용법: ck {apply|start|stop|restart|status|log|wait|id|backup|update|update-game}"
   exit 1
   ;;
 esac

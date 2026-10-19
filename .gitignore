@@ -1,8 +1,13 @@
-   core.env
-   .env
-   .state/
-   server-files/
-   server-data/
-   backups/
-   *.tar.gz
-   *.log
+core.env
+.env
+.state/
+server-files/
+server-data/
+fex-cache/
+mesa-cache/
+update-control/
+backups/
+*.tar.gz
+*.log
+__pycache__/
+CLAUDE.local.md
