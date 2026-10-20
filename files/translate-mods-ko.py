@@ -53,9 +53,10 @@ def patch(bundle, table, english, used):
     import UnityPy
     orig, mark = bundle + ".orig", bundle + ".ko"
     patched_before = os.path.isfile(mark) and os.path.isfile(orig) and open(mark).read().strip() == sha(bundle)
-    if not patched_before:          # 처음이거나 Steam 이 새 버전으로 바꿔놓은 경우 → 지금 파일이 원본
-        shutil.copy2(bundle, orig)
-    env = UnityPy.load(orig)
+    # 처음이거나 Steam 이 새 버전으로 바꿔놓은 경우 → 지금 파일이 원본
+    # 파일 경로로 열면 UnityPy 가 파일을 잡고 있어서 윈도우에서 지우거나 덮어쓰지 못함 → 메모리로 읽어서 넘김
+    with open(orig if patched_before else bundle, "rb") as f:
+        env = UnityPy.load(f.read())
     count = 0
     for path, obj in env.container.items():
         if "/TextDataBlock/" not in path:
@@ -77,9 +78,9 @@ def patch(bundle, table, english, used):
         obj.save_typetree(tree)
         count += 1
     if not count:
-        if not patched_before:
-            os.remove(orig)
         return 0
+    if not patched_before:
+        shutil.copy2(bundle, orig)
     tmp = bundle + ".tmp"
     with open(tmp, "wb") as f:
         f.write(env.file.save(packer="lz4"))
