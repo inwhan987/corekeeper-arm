@@ -97,6 +97,8 @@ Eternal Ore Boulders 1.0.2r1, Better Minimap 1.0.1.
    annotate-coreenhance.py 를 `~/corekeeper/` 로 받고, `core.env` 에 `UPDATE_GATE_ENABLED=true` 추가,
    `record_build` 로 현재 빌드 기록, `ck apply && ck wait` 로 재시작 시간 측정.
    (서버는 이미지를 손으로 FEX 로 바꾼 상태라 `docker-compose.yml` 은 저장소 것과 내용이 같다.)
+   → 2026-10-20 반영 완료. 게이트 켠 뒤 `ck apply && ck wait` = **9분 39초** (업데이트 검사는 건너뛰어 4초 만에 게임 실행,
+     나머지는 모드 컴파일·월드 로드). 정상 종료 때 월드를 저장하는 것도 확인 (종료 순간 `0.world.gzip` 갱신).
 3. `crontab -l` 에 watchdog / checkupdate / nightly 3줄이 있는지 확인. 첫 설치가 SSH 끊김으로 중간에 멈췄을 수 있음.
 4. 오라클 보안 목록의 UDP 8211(예전 팰월드) 규칙 삭제 — 사용자가 콘솔에서.
 5. ~~mod.io API 키 재발급~~ — 사용자가 재발급하지 않고 예전 키를 그대로 쓰기로 함 (2026-10-20). 서버 키는 작동 확인됨.
