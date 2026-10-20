@@ -77,7 +77,7 @@ Eternal Ore Boulders 1.0.2r1, Better Minimap 1.0.1.
 - 게임 안 메뉴 글자는 각 클라이언트의 모드 번들(`Bundles/*_Windows.assetbundle`) 안 TextDataBlock 에서 온다
   (키 = `MiscHelper.GetLocalKey` → `CoreEnhance_Config_Accelerate/Merchant` 형식). 언어 칸 13개 중 0번(중국어)·2번(영어)만 차 있다.
   `translate-mods-ko.py` + `mod-ko.json` 이 빈 칸에 한글을 채운다 (UnityPy, 원본 `.orig` 보관, `--restore`).
-  서버는 화면을 안 그리므로 서버 번들은 안 바꾼다. 사본으로 패치·재패치·복원까지 확인했고, **게임 안 실제 표시는 미확인**.
+  서버는 화면을 안 그리므로 서버 번들은 안 바꾼다. 사본으로 패치·재패치·복원을 확인했고, 사용자 PC 에서 게임 안 한글 표시도 확인됨 (2026-10-20).
   mod-ko.json 설명은 모드 원문 기준이라 annotate 주석과 다른 곳이 있다
   (FishingNetNoCritter = 미끼 자동 채움, BossScan = 다시 나온 보스 지도 표시, ContainerDisplay = 아이템 든 상자 강조,
   Durability = 내구도 자동 회복, Arena = 고대 동전으로 투기장 재건). 이쪽이 맞다.
