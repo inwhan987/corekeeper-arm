@@ -97,7 +97,7 @@ Eternal Ore Boulders 1.0.2r1, Better Minimap 1.0.1.
    (서버는 이미지를 손으로 FEX 로 바꾼 상태라 `docker-compose.yml` 은 저장소 것과 내용이 같다.)
 3. `crontab -l` 에 watchdog / checkupdate / nightly 3줄이 있는지 확인. 첫 설치가 SSH 끊김으로 중간에 멈췄을 수 있음.
 4. 오라클 보안 목록의 UDP 8211(예전 팰월드) 규칙 삭제 — 사용자가 콘솔에서.
-5. mod.io API 키 재발급 권장 (대화에 노출됐었음).
+5. ~~mod.io API 키 재발급~~ — 사용자가 재발급하지 않고 예전 키를 그대로 쓰기로 함 (2026-10-20). 서버 키는 작동 확인됨.
 6. 장시간 안정성 관찰. FEX 이미지는 장시간 운영이 검증되지 않았다. 끊기면 `ck log` 로 원인 확인.
 
 ## 이전 이력
