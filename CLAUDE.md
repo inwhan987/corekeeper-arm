@@ -53,7 +53,9 @@
   (직접 접속 모드) 가 뜨면 완료, `Segmentation fault` 면 크래시. 직접 접속 모드에서는 `GameID.txt` 가 안 생긴다.
 - **설정 변경 알림** — `ck apply` 가 이전 적용본과 `core.env` 를 비교하고, 각 키 위의 한국어 주석을 이름으로 써서
   디스코드로 보낸다. 비밀값 키(PASSWORD/WEBHOOK/TOKEN/KEY)는 "변경됨"으로만.
-- 게임 안 공지 기능이 없어서 재시작 예고는 못 한다 (팰월드 때와 다름).
+- 게임 안 공지 기능이 없어서 게임 안 재시작 예고는 못 한다 (팰월드 때와 다름). 대신 `drain_players` (lib.sh):
+  이번 기동 이후 로그의 `[userid:N] player 이름 connected` / `Disconnected from userid:N` 로 접속자를 세고,
+  있으면 디스코드 예고 후 최대 5분(`DRAIN_MAX`) 대기, 1분 남으면 한 번 더 알림. apply(재생성 때)·stop·restart·update-game 에 걸림. `--now` 로 건너뜀.
 
 ## 모드
 

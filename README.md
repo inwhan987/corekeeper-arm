@@ -132,4 +132,6 @@ python files/translate-mods-ko.py
   ([테스트 기록](https://github.com/Lianye-Scythe/core-keeper-dedicated-fex/blob/main/fex/RESULTS.md)).
   갑자기 끊기면 워치독이 디스코드로 알립니다.
 - 코어키퍼 서버에는 게임 안 공지 기능이 없어서, 재시작 전에 게임 안에서 예고를 띄울 수 없습니다.
+  대신 `ck apply` · `stop` · `restart` · `update-game` 은 접속자가 있으면 디스코드로 예고하고
+  모두 나갈 때까지 최대 5분 기다립니다 (1분 남으면 한 번 더 알림). 바로 하려면 `--now`.
 - `core.env` 에는 비밀번호, 웹후크, API 키가 평문으로 들어갑니다. 이 저장소에 커밋하지 마세요 (`.gitignore` 에 들어 있음).

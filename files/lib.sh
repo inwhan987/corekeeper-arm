@@ -88,6 +88,48 @@ wait_ready(){   # wait_ready <최대초> <기준시각>  — 기준시각 이후
   return 1
 }
 
+# ------------------------------------------------------- 접속자 · 예고
+online_players(){   # 지금 접속 중인 플레이어 이름 (한 줄에 하나) — 이번 기동 이후 로그의 접속/퇴장으로 셈
+  running || return 0
+  local since; since=$($D inspect -f '{{.State.StartedAt}}' "$CON" 2>/dev/null)
+  $D logs --since "${since:-0}" "$CON" 2>&1 | python3 -c '
+import sys, re
+on = {}
+for l in sys.stdin:
+    m = re.search(r"\[userid:(\d+)\] player (.*) connected islocalplayer", l)
+    if m:
+        on[m.group(1)] = m.group(2)
+        continue
+    m = re.search(r"Disconnected from userid:(\d+)", l)
+    if m:
+        on.pop(m.group(1), None)
+print("\n".join(on.values()))
+'
+}
+
+drain_players(){   # drain_players <무엇을 하는지>  — 접속자가 있으면 디스코드로 예고하고 다 나갈 때까지 기다린다
+  # 게임 안 공지 기능이 없어서 예고는 디스코드로만. 최대 DRAIN_MAX 초(기본 5분), 1분 남으면 한 번 더 알림.
+  # NOW=1 이면 기다리지 않음 (ck ... --now)
+  [ "${NOW:-0}" = "1" ] && return 0
+  local max=${DRAIN_MAX:-300} t=0 who warned=0
+  who=$(online_players)
+  [ -z "$who" ] && return 0
+  send "⏳ 곧 서버 $1" "접속 중: $(echo "$who" | paste -sd, - | sed 's/,/, /g')
+최대 $((max / 60))분 뒤 $1합니다. 그 전에 모두 나가면 바로 진행합니다." "$C_INFO"
+  echo "접속 중: $(echo "$who" | paste -sd' ' -) — 모두 나갈 때까지 최대 $((max / 60))분 기다립니다 (Ctrl+C 로 취소)"
+  while [ $t -lt "$max" ]; do
+    sleep 15; t=$((t + 15))
+    who=$(online_players)
+    [ -z "$who" ] && { echo "모두 나감 — 진행"; return 0; }
+    if [ "$warned" = "0" ] && [ $((max - t)) -le 60 ]; then
+      send "⏳ 1분 후 서버 $1" "접속 중: $(echo "$who" | paste -sd, - | sed 's/,/, /g')" "$C_BAD"
+      warned=1
+    fi
+  done
+  echo "시간 끝 — 접속자가 남아 있지만 진행"
+  return 0
+}
+
 # ------------------------------------------------------- 업데이트 허가
 # UPDATE_GATE_ENABLED=true 이면 컨테이너는 평소 업데이트 확인(파일 검사)을 건너뛰고,
 # 이 파일에 1시간 이내의 시각이 적혀 있을 때만 업데이트한다. 사용 후 컨테이너가 지운다.
