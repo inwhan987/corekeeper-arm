@@ -56,6 +56,20 @@ MODS=core-lib,generalconfigmenu,coreenhance,instantportalcharge,eternaloreboulde
 - 내 게임과 서버의 모드 구성이 다르면 접속 시 `bad protocol version` 으로 튕깁니다.
 - 글꼴처럼 화면만 바꾸는 모드는 서버에 없어도 됩니다. 넣었다가 서버가 안 켜지면 그런 모드부터 빼세요.
 
+### 모드 설정 메뉴 한글로 보기
+
+게임 안 모드 설정 메뉴(ESC → 설정 → 모드 설정)는 중국어·영어만 들어 있습니다.
+각자 **게임하는 PC** 에서 아래를 실행하면 한글로 나옵니다 (게임은 끄고, 게임 언어는 한국어).
+
+```
+pip install UnityPy
+python files/translate-mods-ko.py
+```
+
+- Steam 창작마당 폴더를 알아서 찾아 CoreEnhance·General Mod Config Menu 번들에 한글을 넣습니다. 번역은 `files/mod-ko.json`.
+- 원본은 옆에 `.orig` 로 남습니다. 되돌리기: `python files/translate-mods-ko.py --restore`
+- 모드가 업데이트되면 영어로 돌아오니 다시 실행하세요. 게임 언어가 영어라면 `--english` 를 붙이세요.
+
 ## 명령
 
 | 명령 | 하는 일 |
