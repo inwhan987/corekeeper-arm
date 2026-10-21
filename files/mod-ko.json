@@ -44,7 +44,7 @@
   "CoreEnhance_Config_Infinity/ArenaValue": ["투기장 재건 비용", "투기장을 다시 세우는 데 드는 고대 동전 수"],
   "CoreEnhance_Config_Infinity/BossScan": ["보스 위치 표시", "한 번 잡은 보스가 다시 나타나면 지도에 위치가 자동으로 표시됨"],
   "CoreEnhance_Config_Infinity/BossScanValue": ["돌아다니는 보스만", "돌아다니는 보스만 다시 찾아 표시"],
-  "CoreEnhance_Config_Infinity/Boulder": ["광석 바위 무한", "Eternal Ore Boulders 모드와 같은 기능이라 꺼두기 권장"],
+  "CoreEnhance_Config_Infinity/Boulder": ["광석 바위 무한", "드릴로 캐도 광석 바위가 안 부서짐 (Eternal Ore Boulders 대신 사용)"],
   "CoreEnhance_Config_Infinity/Durability": ["내구도 자동 회복", ""],
   "CoreEnhance_Config_Infinity/DurabilityValue": ["내구도 회복 간격", ""],
   "CoreEnhance_Config_Infinity/Minion": ["소환수 유지 시간", ""],

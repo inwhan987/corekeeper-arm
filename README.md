@@ -48,7 +48,7 @@ SSH가 끊겨도 계속 돌게 하려면 `tmux new -s ck` 안에서 실행하세
 MODS_ENABLED=true
 MODIO_API_KEY=...                          # mod.io → 계정 → API Access
 MODIO_API_URL=https://u-숫자.modapi.io/v1
-MODS=core-lib,generalconfigmenu,coreenhance,instantportalcharge,eternaloreboulders
+MODS=core-lib,generalconfigmenu,coreenhance,instantportalcharge
 ```
 
 - 모드 ID는 mod.io 주소의 마지막 부분입니다. (`mod.io/g/corekeeper/m/core-lib` → `core-lib`)

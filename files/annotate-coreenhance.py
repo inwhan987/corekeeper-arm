@@ -25,7 +25,7 @@ KO = {
  "FishingNetCanGetItemValue": "낚시 그물 아이템 확률 0~0.5",
  "GoldenPlantToSeedValue": "황금 작물에서 얻는 씨앗 개수 0~8",
  "Durability": "장비 내구도 무한",
- "Boulder": "광석 바위 무한 — Eternal Ore Boulders 모드와 같은 기능이라 false 권장",
+ "Boulder": "광석 바위 무한 — 드릴로 캐도 광석 바위가 안 부서짐 (Eternal Ore Boulders 대신 사용)",
  "Arena": "투기장 반복 — 투기장 상태를 기록해뒀다가 되돌림 (포털·웨이포인트·플레이어·무덤은 제외)",
  "BossScan": "처치한 보스 기록을 다뤄서 보스를 다시 찾거나 잡을 수 있게 함",
  "ArenaValue": "투기장 복구 계산에 쓰는 값 100~9999 (정확한 단위는 미확인)",

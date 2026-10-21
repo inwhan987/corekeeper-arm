@@ -44,6 +44,8 @@
   그 이미지의 이슈 #108 #111 과 같은 증상. 오라클용 `adlink` 빌드도 현재 빠져 있음. root(PUID=0)는 이미지가 거부.
 - **FEX 이미지 + `FEX_MULTIBLOCK=1` `FEX_MAXINST=16` 필수.** 이 둘이 없으면 FEX 도 같은 지점에서 죽는다
   (Lianye-Scythe/core-keeper-dedicated-fex 의 fex/RESULTS.md). `docker-compose.yml` 의 `environment:` 에 고정.
+  렉을 줄이려고 2026-10-21 `FEX_MAXINST=64` 를 시험했더니 모드 스크립트 컴파일 중 `signo:11` 세그폴트로
+  무한 재시작. 16 보다 올리지 말 것.
 - **`UPDATE_GATE_ENABLED=true`** — 평소 기동 때 DepotDownloader 파일 검사(천여 개)를 건너뛴다.
   업데이트는 `update-control/apply-update` 에 현재 epoch 초(`date +%s`)를 쓰고 재시작할 때만.
   1시간 넘은 허가는 무시되고, 사용 후 컨테이너가 지운다. `ck update-game` 이 이 방식으로 동작.
@@ -62,11 +64,15 @@
 mod.io 에서 받는다 (`MODS_ENABLED`, `MODIO_API_KEY`, `MODIO_API_URL`, `MODS`). 현재 서버:
 
 ```
-MODS=core-lib,generalconfigmenu,coreenhance,instantportalcharge,eternaloreboulders,betterminimap
+MODS=core-lib,generalconfigmenu,coreenhance,instantportalcharge
 ```
 
-설치된 버전: CoreLib 5.0.0, General Mod Config Menu 1.4.2, CoreEnhance 1.4.8, InstantPortalCharge 1.4.4,
-Eternal Ore Boulders 1.0.2r1, Better Minimap 1.0.1.
+설치된 버전: CoreLib 5.0.0, General Mod Config Menu 1.4.2, CoreEnhance 1.4.8, InstantPortalCharge 1.4.4.
+
+- Eternal Ore Boulders · Better Minimap(둘 다 Parcew 제작)은 2026-10 mod.io 에서 내려갔다 (스팀 창작마당엔 있음).
+  MODS 에 없는 모드가 있으면 설치기가 `Failed to get download URL for mod null` 로 멈추고 컨테이너가 무한 재시작한다.
+- 광석 바위 무한은 CoreEnhance `Config.cfg` 의 `Boulder = true` 로 대신한다 (코드상 같은 동작).
+  Better Minimap 은 클라이언트 전용이라 서버에 필요 없다.
 
 - 사용자 게임은 스팀 창작마당에서 받은 모드를 쓴다. 서버(mod.io)와 구성이 다르면 접속 시
   `RpcSystem received bad protocol version` 으로 튕긴다. 실제로 모드 없이 접속했다가 이걸로 튕긴 적 있음.
